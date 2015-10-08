@@ -51,7 +51,7 @@ fn main() {
     thread::spawn(move || {
         let user_to_stream = user_to_stream.clone();
 
-        let mut counter = 0;
+        let mut counter = 0; // Which Stream should handle a new sender
         let client = Client::new();
 
         loop {
@@ -79,7 +79,6 @@ fn main() {
                                     tx.send(message.clone()).unwrap();
                                 }
                                 None => {
-                                    counter += 1;
                                     let mut listener_id = listeners.keys().nth(counter);
                                     if listener_id.is_none() && counter == 0 {
                                         // If there are no listeners
@@ -90,6 +89,8 @@ fn main() {
 
                                     listener_id = listeners.keys().nth(counter);
                                     user_to_stream.insert(user_id, listener_id.unwrap().clone());
+
+                                    counter += 1;
                                 }
                             }
                         }
