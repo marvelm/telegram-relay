@@ -81,9 +81,13 @@ fn main() {
                                 None => {
                                     counter += 1;
                                     let mut listener_id = listeners.keys().nth(counter);
-                                    if listener_id.is_none() {
+                                    if listener_id.is_none() && counter == 0 {
+                                        // If there are no listeners
+                                        continue;
+                                    } else {
                                         counter = 0;
                                     }
+
                                     listener_id = listeners.keys().nth(counter);
                                     user_to_stream.insert(user_id, listener_id.unwrap().clone());
                                 }
