@@ -1,0 +1,10 @@
+[package]
+name = "telegram-relay"
+version = "0.1.0"
+authors = ["m <m@marvelmathew.ca>"]
+
+[dependencies]
+docopt = "0.6"
+rustc-serialize = "0.3"  # if you're using `derive(RustcDecodable)`
+rand = "0.3"
+hyper = "0.6.14"
