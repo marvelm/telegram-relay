@@ -33,7 +33,7 @@ fn listen(mut stream: TcpStream, rx: Receiver<Json>) {
     loop {
         let message = rx.recv().unwrap();
         let as_raw_json = format!("{}", message.pretty());
-        stream.write_all(&as_raw_json.into_bytes()[..]);
+        stream.write_all(&as_raw_json.into_bytes()[..]).unwrap();
     }
 }
 
@@ -44,12 +44,12 @@ fn main() {
 
     let tcp_listener = TcpListener::bind("127.0.0.1:9001").unwrap();
 
-    let mut listeners: Arc<Mutex<HashMap<i64, Sender<Json>>>> = Arc::new(Mutex::new(HashMap::new()));
-    let mut user_to_stream: Arc<Mutex<HashMap<i64, i64>>> = Arc::new(Mutex::new(HashMap::new()));
+    let listeners: Arc<Mutex<HashMap<i64, Sender<Json>>>> = Arc::new(Mutex::new(HashMap::new()));
+    let user_to_stream: Arc<Mutex<HashMap<i64, i64>>> = Arc::new(Mutex::new(HashMap::new()));
 
-    let mut listeners_mutex = listeners.clone();
+    let listeners_mutex = listeners.clone();
     thread::spawn(move || {
-        let mut user_to_stream = user_to_stream.clone();
+        let user_to_stream = user_to_stream.clone();
 
         let mut counter = 0;
         let client = Client::new();
@@ -71,10 +71,9 @@ fn main() {
                             let user_id = from.get("id").unwrap().as_i64().unwrap();
 
                             let mut user_to_stream = user_to_stream.lock().unwrap();
-                            let mut listeners = listeners_mutex.lock().unwrap();
+                            let listeners = listeners_mutex.lock().unwrap();
 
-                            let mut opt_user_id = user_to_stream.get(&user_id);
-                            match opt_user_id {
+                            match user_to_stream.clone().get(&user_id) {
                                 Some(listener_id) => {
                                     let tx = listeners.get(listener_id).unwrap();
                                     tx.send(message.clone()).unwrap();
@@ -97,7 +96,7 @@ fn main() {
         }
     });
 
-    let mut listeners_mutex = listeners.clone();
+    let listeners_mutex = listeners.clone();
     for stream in tcp_listener.incoming() {
         match stream {
             Ok(stream) => {
