@@ -9,3 +9,5 @@ The relay will continously retrieve updates from the API and push json messages 
 `telegram-relay start <token>`
 
 `token` is your bot's Telegram API token.
+
+Listen on TCP port 9001 for line('\n') delimited json messages.
