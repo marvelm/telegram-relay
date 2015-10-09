@@ -14,6 +14,7 @@ use hyper::client::Client;
 
 use rand::random;
 use rustc_serialize::json::Json;
+use rustc_serialize::json;
 
 use docopt::Docopt;
 
@@ -32,7 +33,7 @@ struct Args {
 fn listen(mut stream: TcpStream, rx: Receiver<Json>) {
     loop {
         let message = rx.recv().unwrap();
-        let as_raw_json = format!("{}", message.pretty());
+        let as_raw_json = json::encode(&message).unwrap();
         stream.write_all(&as_raw_json.into_bytes()[..]).unwrap();
     }
 }
@@ -53,9 +54,11 @@ fn main() {
 
         let mut counter = 0; // Which Stream should handle a new sender
         let client = Client::new();
+        let mut last_update = 0;
 
         loop {
-            let mut res = client.get(&format!("https://api.telegram.org/bot{}/getUpdates", args.arg_token)[..]).send().unwrap();
+            let timeout = 5;
+            let mut res = client.get(&format!("https://api.telegram.org/bot{}/getUpdates?timeout={}&offset={}", args.arg_token, timeout, last_update + 1)[..]).send().unwrap();
 
             let mut body = String::new();
             res.read_to_string(&mut body).unwrap();
@@ -65,7 +68,10 @@ fn main() {
             if obj.get("ok").unwrap().as_boolean().unwrap() {
                 let result = obj.get("result").unwrap().as_array().unwrap();
                 for update in result {
-                    match update.as_object().unwrap().get("message") {
+                    let update = update.as_object().unwrap();
+                    last_update = update.get("update_id").unwrap().as_i64().unwrap();
+
+                    match update.get("message") {
                         Some(message) => {
                             let from = message.as_object().unwrap().get("from").unwrap().as_object().unwrap();
                             let user_id = from.get("id").unwrap().as_i64().unwrap();
