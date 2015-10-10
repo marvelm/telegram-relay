@@ -57,9 +57,13 @@ fn main() {
         let client = Client::new();
         let mut last_update = 0;
 
-        loop {
+        'get_updates: loop {
             let timeout = 5;
-            let mut res = client.get(&format!("https://api.telegram.org/bot{}/getUpdates?timeout={}&offset={}", args.arg_token, timeout, last_update + 1)[..]).send().unwrap();
+            let mut res = client.get(&format!("https://api.telegram.org/bot{}/getUpdates?timeout={}&offset={}",
+                                              args.arg_token,
+                                              timeout,
+                                              last_update + 1
+                                              )[..]).send().unwrap();
 
             let mut body = String::new();
             res.read_to_string(&mut body).unwrap();
@@ -74,8 +78,10 @@ fn main() {
 
                     match update.get("message") {
                         Some(message) => {
-                            let from = message.as_object().unwrap().get("from").unwrap().as_object().unwrap();
-                            let user_id = from.get("id").unwrap().as_i64().unwrap();
+                            let from = message.as_object().unwrap().get("from")
+                                .unwrap().as_object().unwrap();
+                            let user_id = from.get("id")
+                                .unwrap().as_i64().unwrap();
 
                             let mut user_to_stream = user_to_stream.lock().unwrap();
                             let listeners = listeners_mutex.lock().unwrap();
@@ -89,7 +95,7 @@ fn main() {
                                     let mut listener_id = listeners.keys().nth(counter);
                                     if listener_id.is_none() && counter == 0 {
                                         // If there are no listeners
-                                        continue;
+                                        continue 'get_updates;
                                     } else {
                                         counter = 0;
                                     }
