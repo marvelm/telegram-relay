@@ -35,7 +35,7 @@ fn listen(mut stream: TcpStream, rx: Receiver<Json>) {
         let message = rx.recv().unwrap();
         let as_raw_json = json::encode(&message).unwrap();
         stream.write_all(&as_raw_json.into_bytes()[..]).unwrap();
-        stream.write_all(b"\n");
+        stream.write_all(b"\n").unwrap();
     }
 }
 
