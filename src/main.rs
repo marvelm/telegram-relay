@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex};
 use hyper::client::Client;
 
 use rand::random;
+
 use rustc_serialize::json::Json;
 use rustc_serialize::json;
 
@@ -53,7 +54,11 @@ fn main() {
     thread::spawn(move || {
         let user_to_stream = user_to_stream.clone();
 
-        let mut counter = 0; // Which Stream should handle a new sender
+        // Load-balances and determines which Stream should handle a new user.
+        // It's incremented when a message from a new user is received
+        // and reset to 0 when every Stream has taken responsibility for a user in every iteration.
+        let mut counter = 0;
+
         let client = Client::new();
         let mut last_update = 0;
 
@@ -95,6 +100,7 @@ fn main() {
                                     let mut listener_id = listeners.keys().nth(counter);
                                     if listener_id.is_none() && counter == 0 {
                                         // If there are no listeners
+                                        println!("Unhandled unmessage: [from:{}] [user_id:{}]", from, user_id)
                                         continue 'get_updates;
                                     } else {
                                         counter = 0;
