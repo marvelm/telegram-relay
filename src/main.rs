@@ -96,13 +96,15 @@ fn main() {
 
                             match user_to_stream.clone().get(&user_id) {
                                 Some(listener_id) => {
-                                    let tx = listeners.get(listener_id).expect("Getting sender for listener id {}", listener_id);
-                                    tx.send(message.clone()).expect("Sending message to a listener: {}", listener_id);
+                                    let tx = listeners.get(listener_id)
+                                        .expect(&format!("Getting sender for listener_id {}", listener_id)[..]);
+                                    tx.send(message.clone())
+                                        .expect(&format!("Sending message to a listener: {}", listener_id)[..]);
                                 }
                                 None => {
                                     let mut listener_id = listeners.keys().nth(counter);
                                     if listener_id.is_none() && counter == 0 {
-                                        println!("No listeners are connected: [from:{}] [user_id:{}]", from, user_id)
+                                        println!("No listeners are connected\n {}", message);
                                         continue 'get_updates;
                                     } else {
                                         counter = 0;
