@@ -68,46 +68,48 @@ fn main() {
                                               args.arg_token,
                                               timeout,
                                               last_update + 1
-                                              )[..]).send().unwrap();
+                                              )[..]).send().expect("Accessing API");
 
             let mut body = String::new();
-            res.read_to_string(&mut body).unwrap();
-            let json = Json::from_str(&body[..]).unwrap();
+            res.read_to_string(&mut body).expect("Reading API response");
+            let json = Json::from_str(&body[..]).expect("Parsing JSON");
             let obj = json.as_object().unwrap();
 
-            if obj.get("ok").unwrap().as_boolean().unwrap() {
-                let result = obj.get("result").unwrap().as_array().unwrap();
+            if obj.get("ok").expect("Checking if API result has OK flag").as_boolean().unwrap() {
+                let result = obj.get("result").expect("Getting result").as_array().expect("'result' should be an array");
                 for update in result {
-                    let update = update.as_object().unwrap();
-                    last_update = update.get("update_id").unwrap().as_i64().unwrap();
+                    let update = update.as_object().expect("Getting update");
+                    last_update = update.get("update_id").expect("Getting update id")
+                        .as_i64().expect("'update_id' should be an int");
 
                     match update.get("message") {
                         Some(message) => {
-                            let from = message.as_object().unwrap().get("from")
-                                .unwrap().as_object().unwrap();
-                            let user_id = from.get("id")
-                                .unwrap().as_i64().unwrap();
+                            // 'from' is a User object
+                            let from = message.as_object().expect("Getting message")
+                                .get("from").expect("Getting from")
+                                .as_object().expect("'from' should be an object");
+                            let user_id = from.get("id").expect("Getting id")
+                                .as_i64().expect("User.'id' should be an int");
 
-                            let mut user_to_stream = user_to_stream.lock().unwrap();
-                            let listeners = listeners_mutex.lock().unwrap();
+                            let mut user_to_stream = user_to_stream.lock().expect("Getting user_stream");
+                            let listeners = listeners_mutex.lock().expect("Getting listeners");
 
                             match user_to_stream.clone().get(&user_id) {
                                 Some(listener_id) => {
-                                    let tx = listeners.get(listener_id).unwrap();
-                                    tx.send(message.clone()).unwrap();
+                                    let tx = listeners.get(listener_id).expect("Getting sender for listener id {}", listener_id);
+                                    tx.send(message.clone()).expect("Sending message to a listener: {}", listener_id);
                                 }
                                 None => {
                                     let mut listener_id = listeners.keys().nth(counter);
                                     if listener_id.is_none() && counter == 0 {
-                                        // If there are no listeners
-                                        println!("Unhandled unmessage: [from:{}] [user_id:{}]", from, user_id)
+                                        println!("No listeners are connected: [from:{}] [user_id:{}]", from, user_id)
                                         continue 'get_updates;
                                     } else {
                                         counter = 0;
+                                        listener_id = listeners.keys().nth(counter);
                                     }
 
-                                    listener_id = listeners.keys().nth(counter);
-                                    user_to_stream.insert(user_id, listener_id.unwrap().clone());
+                                    user_to_stream.insert(user_id, listener_id.expect("'listener_id' should be defined").clone());
 
                                     counter += 1;
                                 }
