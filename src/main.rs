@@ -47,8 +47,8 @@ fn main() {
 
     let tcp_listener = TcpListener::bind("127.0.0.1:9001").unwrap();
 
-    let listeners: Arc<Mutex<HashMap<i64, Sender<Json>>>> = Arc::new(Mutex::new(HashMap::new()));
-    let user_to_stream: Arc<Mutex<HashMap<i64, i64>>> = Arc::new(Mutex::new(HashMap::new()));
+    let listeners = Arc::new(Mutex::new(HashMap::<i64, Sender<Json>>::new()));
+    let user_to_stream = Arc::new(Mutex::new(HashMap::<i64, i64>::new()));
 
     let listeners_mutex = listeners.clone();
     thread::spawn(move || {
