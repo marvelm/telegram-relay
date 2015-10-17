@@ -1,8 +1,9 @@
 # telegram-relay
 
 `telegram-relay` forwards messages from the Telegram Bot API.
-The relay will continously retrieve updates from the API and push json [Message](https://core.telegram.org/bots/api#message)s through sockets connected to
+The relay will continously retrieve updates from the API and push JSON messages to
 `localhost:9001`. It will automatically route messages depending on the sender of the message.
+`telegram-relay` will make sure that a sender is always associated with a single listener.
 
 ### Usage
 
@@ -10,7 +11,8 @@ The relay will continously retrieve updates from the API and push json [Message]
 
 `token` is your bot's Telegram API token.
 
-Listen on TCP port 9001 for line('\n') delimited json messages.
+Listen on TCP port 9001 for line ('\n') delimited json messages. There will be one
+[Message](https://core.telegram.org/bots/api#message) per line.
 
 ### Building
 
