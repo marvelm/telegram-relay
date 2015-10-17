@@ -15,4 +15,4 @@ Listen on TCP port 9001 for line('\n') delimited json messages.
 ### Building
 
 The Nightly release of Rust is currently required because the `Result.expect(&str)`
-feature won't be included until Rust 1.4
+feature won't be included until Rust 1.4 and I'm too lazy to do `Result.ok().expect(&str)`
