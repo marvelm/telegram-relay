@@ -34,9 +34,9 @@ struct Args {
 fn listen(mut stream: TcpStream, rx: Receiver<Json>) {
     loop {
         let message = rx.recv().unwrap();
-        let as_raw_json = json::encode(&message).unwrap();
-        stream.write_all(&as_raw_json.into_bytes()[..]).unwrap();
-        stream.write_all(b"\n").unwrap();
+        let as_raw_json = json::encode(&message).expect("Encoding message");
+        stream.write_all(&as_raw_json.into_bytes()[..]).expect("Writing encoded message to socket");
+        stream.write_all(b"\n").expect("Writing line");
     }
 }
 
@@ -67,16 +67,17 @@ fn main() {
             let mut res = client.get(&format!("https://api.telegram.org/bot{}/getUpdates?timeout={}&offset={}",
                                               args.arg_token,
                                               timeout,
-                                              last_update + 1
-                                              )[..]).send().expect("Accessing API");
+                                              last_update + 1)[..])
+                .send().expect("Accessing API");
 
             let mut body = String::new();
             res.read_to_string(&mut body).expect("Reading API response");
             let json = Json::from_str(&body[..]).expect("Parsing JSON");
-            let obj = json.as_object().unwrap();
+            let obj = json.as_object().expect("JSON update should be an object");
 
             if obj.get("ok").expect("Checking if API result has OK flag").as_boolean().unwrap() {
-                let result = obj.get("result").expect("Getting result").as_array().expect("'result' should be an array");
+                let result = obj.get("result").expect("Getting result")
+                    .as_array().expect("'result' should be an array");
                 for update in result {
                     let update = update.as_object().expect("Getting update");
                     last_update = update.get("update_id").expect("Getting update id")
