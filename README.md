@@ -5,6 +5,8 @@ The relay will continously retrieve updates from the API and push JSON messages 
 `localhost:9001`. It will automatically route messages depending on the sender of the message.
 `telegram-relay` will make sure that a sender is always associated with a single listener.
 
+TODO: Make the relay re-route messages bound for disconnected listeners.
+
 ### Usage
 
 `telegram-relay start <token>`
