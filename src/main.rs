@@ -53,7 +53,7 @@ fn listen(mut stream: TcpStream, rx: Receiver<RelayMessage>, listener_id: i64) {
             },
             RelayMessage::Stop => {
                 stream.shutdown(Shutdown::Both)
-                    .expect("Shutting down listener");
+                    .expect("Shutting down TCP stream");
                 break 'listening;
             },
         };
