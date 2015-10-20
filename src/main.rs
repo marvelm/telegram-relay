@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::io::{Read, Write, BufReader, BufRead};
 use std::sync::{Arc, Mutex};
+use std::borrow::Borrow;
 
 use hyper::client::Client;
 
@@ -36,7 +37,9 @@ enum RelayMessage {
     Message(Json)
 }
 
-fn listen(mut stream: TcpStream, rx: Receiver<RelayMessage>) {
+fn listen(mut stream: TcpStream, rx: Receiver<RelayMessage>, listener_id: i64) {
+    stream.write_all(&format!("LISTENER_ID: {}\n", listener_id)
+                     .into_bytes()[..]);
     'listening: loop {
         let relay_message = rx.recv().unwrap();
         match relay_message {
@@ -143,7 +146,7 @@ fn main() {
     let listeners_mutex = listeners.clone();
     for stream in tcp_listener.incoming() {
         match stream {
-            Ok(stream: mut Stream) => {
+            Ok(stream) => {
                 let mut reader = BufReader::new(stream);
                 let mut line = String::new();
                 reader.read_line(&mut line).expect("Listeners should send a line");
@@ -152,8 +155,11 @@ fn main() {
                     if line == "NEW_LISTENER\n" {
                         random::<i64>()
                     } else if line.starts_with("LISTENER_ID"){
-                        line.split(' ').nth(1).expect("LISTENER_ID id")
-                            .parse::<i64>()
+                        let mut str_id = String::from(line.split(' ').nth(1)
+                            .expect("LISTENER_ID id"));
+                        let len = str_id.len();
+                        str_id.truncate(len - 1);
+                        str_id.parse::<i64>()
                             .expect("LISTENER_ID should be followed by a listener id.")
                     } else {
                         println!("Invalid initial line");
@@ -168,10 +174,9 @@ fn main() {
 
                 let (tx, rx) = channel();
                 listeners.insert(listener_id, tx);
-                stream.write_all(&format!("LISTENER_ID: {}", listener_id).into_bytes()[..]);
 
                 thread::spawn(move|| {
-                    listen(stream, rx);
+                    listen(stream, rx, listener_id);
                 });
             }
             Err(_) => {
