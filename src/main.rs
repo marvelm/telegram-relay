@@ -3,11 +3,11 @@ extern crate docopt;
 extern crate rand;
 extern crate hyper;
 
-use std::net::{TcpListener, TcpStream};
+use std::net::{TcpListener, TcpStream, Shutdown};
 use std::thread;
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Sender, Receiver};
-use std::io::{Read, Write};
+use std::io::{Read, Write, BufReader, BufRead};
 use std::sync::{Arc, Mutex};
 
 use hyper::client::Client;
@@ -31,12 +31,27 @@ struct Args {
     arg_token: String
 }
 
-fn listen(mut stream: TcpStream, rx: Receiver<Json>) {
-    loop {
-        let message = rx.recv().unwrap();
-        let as_raw_json = json::encode(&message).expect("Encoding message");
-        stream.write_all(&as_raw_json.into_bytes()[..]).expect("Writing encoded message to socket");
-        stream.write_all(b"\n").expect("Writing line");
+enum RelayMessage {
+    Stop,
+    Message(Json)
+}
+
+fn listen(mut stream: TcpStream, rx: Receiver<RelayMessage>) {
+    'listening: loop {
+        let relay_message = rx.recv().unwrap();
+        match relay_message {
+            RelayMessage::Message(json_message) => {
+                let as_raw_json = json::encode(&json_message)
+                    .expect("Encoding message");
+                stream.write_all(&as_raw_json.into_bytes()[..])
+                    .expect("Writing encoded message to socket");
+                stream.write_all(b"\n").expect("Writing line");
+            },
+            RelayMessage::Stop => {
+                stream.shutdown(Shutdown::Both);
+                break 'listening;
+            },
+        };
     }
 }
 
@@ -47,7 +62,7 @@ fn main() {
 
     let tcp_listener = TcpListener::bind("127.0.0.1:9001").unwrap();
 
-    let listeners = Arc::new(Mutex::new(HashMap::<i64, Sender<Json>>::new()));
+    let listeners = Arc::new(Mutex::new(HashMap::<i64, Sender<RelayMessage>>::new()));
     let user_to_stream = Arc::new(Mutex::new(HashMap::<i64, i64>::new()));
 
     let listeners_mutex = listeners.clone();
@@ -99,7 +114,7 @@ fn main() {
                                 Some(listener_id) => {
                                     let tx = listeners.get(listener_id)
                                         .expect(&format!("Getting sender for listener_id {}", listener_id)[..]);
-                                    tx.send(message.clone())
+                                    tx.send(RelayMessage::Message(message.clone()))
                                         .expect(&format!("Sending message to a listener: {}", listener_id)[..]);
                                 }
                                 None => {
@@ -128,10 +143,33 @@ fn main() {
     let listeners_mutex = listeners.clone();
     for stream in tcp_listener.incoming() {
         match stream {
-            Ok(stream) => {
+            Ok(stream: mut Stream) => {
+                let mut reader = BufReader::new(stream);
+                let mut line = String::new();
+                reader.read_line(&mut line).expect("Listeners should send a line");
+
+                let listener_id =
+                    if line == "NEW_LISTENER\n" {
+                        random::<i64>()
+                    } else if line.starts_with("LISTENER_ID"){
+                        line.split(' ').nth(1).expect("LISTENER_ID id")
+                            .parse::<i64>()
+                            .expect("LISTENER_ID should be followed by a listener id.")
+                    } else {
+                        println!("Invalid initial line");
+                        random::<i64>()
+                    };
+
                 let mut listeners = listeners_mutex.lock().unwrap();
+                match listeners.get(&listener_id) {
+                    Some(tx) => { tx.send(RelayMessage::Stop); } ,
+                    None => {},
+                };
+
                 let (tx, rx) = channel();
-                listeners.insert(random::<i64>(), tx);
+                listeners.insert(listener_id, tx);
+                stream.write_all(&format!("LISTENER_ID: {}", listener_id).into_bytes()[..]);
+
                 thread::spawn(move|| {
                     listen(stream, rx);
                 });
