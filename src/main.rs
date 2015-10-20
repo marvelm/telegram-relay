@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::io::{Read, Write, BufReader, BufRead};
 use std::sync::{Arc, Mutex};
-use std::borrow::Borrow;
 
 use hyper::client::Client;
 
@@ -39,7 +38,9 @@ enum RelayMessage {
 
 fn listen(mut stream: TcpStream, rx: Receiver<RelayMessage>, listener_id: i64) {
     stream.write_all(&format!("LISTENER_ID: {}\n", listener_id)
-                     .into_bytes()[..]);
+                     .into_bytes()[..])
+        .expect("Writing listener id");
+
     'listening: loop {
         let relay_message = rx.recv().unwrap();
         match relay_message {
@@ -51,7 +52,8 @@ fn listen(mut stream: TcpStream, rx: Receiver<RelayMessage>, listener_id: i64) {
                 stream.write_all(b"\n").expect("Writing line");
             },
             RelayMessage::Stop => {
-                stream.shutdown(Shutdown::Both);
+                stream.shutdown(Shutdown::Both)
+                    .expect("Shutting down listener");
                 break 'listening;
             },
         };
@@ -168,7 +170,7 @@ fn main() {
 
                 let mut listeners = listeners_mutex.lock().unwrap();
                 match listeners.get(&listener_id) {
-                    Some(tx) => { tx.send(RelayMessage::Stop); } ,
+                    Some(tx) => { tx.send(RelayMessage::Stop).expect("Stopping existing listener"); } ,
                     None => {},
                 };
 
@@ -176,7 +178,7 @@ fn main() {
                 listeners.insert(listener_id, tx);
 
                 thread::spawn(move|| {
-                    listen(stream, rx, listener_id);
+                    listen(reader.into_inner(), rx, listener_id);
                 });
             }
             Err(_) => {
