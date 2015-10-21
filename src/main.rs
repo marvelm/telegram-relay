@@ -67,7 +67,12 @@ fn main() {
 
     let tcp_listener = TcpListener::bind("127.0.0.1:9001").unwrap();
 
+    // A randomly generated id which corresponds to a Sender.
+    // `RelayMessage`s sent through this sender will be interpreted by the `listen`
+    // function above.
     let listeners = Arc::new(Mutex::new(HashMap::<i64, Sender<RelayMessage>>::new()));
+
+    // Correlates user id from Telegram to a listener id.
     let user_to_stream = Arc::new(Mutex::new(HashMap::<i64, i64>::new()));
 
     let listeners_mutex = listeners.clone();
@@ -95,7 +100,10 @@ fn main() {
             let json = Json::from_str(&body[..]).expect("Parsing JSON");
             let obj = json.as_object().expect("JSON update should be an object");
 
-            if obj.get("ok").expect("Checking if API result has OK flag").as_boolean().unwrap() {
+            if obj.get("ok")
+                .expect("Checking if API result has OK flag")
+                .as_boolean().expect("`ok` flag should be a boolean") {
+
                 let result = obj.get("result").expect("Getting result")
                     .as_array().expect("'result' should be an array");
                 for update in result {
@@ -149,10 +157,13 @@ fn main() {
     for stream in tcp_listener.incoming() {
         match stream {
             Ok(stream) => {
+                // The first (and only) line received should be
+                // either "NEW_LISTENER" or "LISTENER_ID id"
                 let mut reader = BufReader::new(stream);
                 let mut line = String::new();
                 reader.read_line(&mut line).expect("Listeners should send a line");
 
+                // Parse the listener id or generate a new one.
                 let listener_id =
                     if line == "NEW_LISTENER\n" {
                         random::<i64>()
@@ -165,12 +176,17 @@ fn main() {
                             .expect("LISTENER_ID should be followed by a listener id.")
                     } else {
                         println!("Invalid initial line");
+                        // Return a random listener_id anyway
                         random::<i64>()
                     };
 
                 let mut listeners = listeners_mutex.lock().unwrap();
+
+                // Stop the existing listener if exists
                 match listeners.get(&listener_id) {
-                    Some(tx) => { tx.send(RelayMessage::Stop).expect("Stopping existing listener"); } ,
+                    Some(tx) => {
+                        tx.send(RelayMessage::Stop)
+                            .expect("Stopping existing listener"); } ,
                     None => {},
                 };
 
